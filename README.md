@@ -4,7 +4,7 @@ Tegner dagens sitat pent oppå et Windows Spotlight-bilde og setter det som skri
 
 Windows Spotlight gir deg nye bakgrunnsbilder, men ingen mulighet til å legge noe oppå dem. DailyQuote plukker bilder fra Spotlight-cachen som Windows fyller opp uansett, tegner et sitat nederst med en mørk gradient bak, og setter resultatet som bakgrunn. Du får fortsatt nye bilder gjennom dagen — bare med tekst på.
 
-Samme sitat hele dagen, nytt bilde hver fjerde time.
+Nytt sitat i tur og orden hver kjøring, nytt bilde hver fjerde time.
 
 ## Krav
 
@@ -66,7 +66,7 @@ Spotlight-bilder havner to steder på disk, uten filendelse:
 
 Scriptet kopierer alt over 250 KB derfra til `%LOCALAPPDATA%\DailyQuote\spotlight\`, forkaster det som ikke er liggende format i tilstrekkelig oppløsning, og velger tilfeldig blant resten. Bassenget blir liggende, så det vokser over tid selv når Windows rydder i sin egen cache.
 
-Sitatvalget seedes på dagens dato (`yyyyMMdd`), som gir samme sitat gjennom hele dagen og et nytt neste morgen.
+Sitatene roteres gjennom i rekkefølge. Sist brukte linjeindeks lagres i `%LOCALAPPDATA%\DailyQuote\quote-state.txt`, og hver kjøring plukker neste linje og starter på nytt øverst når lista er ute. Endrer du `quotes.txt`, justeres indeksen trygt slik at den alltid holder seg innenfor lista.
 
 Ferdig bilde lagres i `%LOCALAPPDATA%\DailyQuote\` med tidsstempel i filnavnet — Windows cacher bakgrunnen per filsti, så uten nytt navn hver gang ville ikke endringen slått gjennom. Bakgrunnen settes via `SystemParametersInfo` med `SPI_SETDESKWALLPAPER`.
 

@@ -3,7 +3,7 @@
     Henter et Windows Spotlight-bilde, tegner dagens sitat pent oppå,
     og setter resultatet som skrivebordsbakgrunn.
 
-    Nytt tilfeldig sitat og bilde for hver kjøring.
+    Roterer gjennom sitatene i rekkefølge; nytt tilfeldig bilde for hver kjøring.
 #>
 
 [CmdletBinding()]
@@ -22,11 +22,18 @@ $pool = Join-Path $work 'spotlight'
 New-Item -ItemType Directory -Force -Path $work, $pool | Out-Null
 
 # ---------------------------------------------------------------- sitat ----
-$quotes = Get-Content $QuotesFile -Encoding UTF8 | Where-Object { $_.Trim() }
+$quotes = @(Get-Content $QuotesFile -Encoding UTF8 | Where-Object { $_.Trim() })
 if (-not $quotes) { throw "Fant ingen sitater i $QuotesFile" }
 
-# Nytt tilfeldig sitat for hver kjøring
-$quote = ($quotes | Get-Random).Trim()
+# Roter gjennom sitatene i rekkefølge; husk sist brukte indeks i state-fil
+$stateFile = Join-Path $work 'quote-state.txt'
+$prev = -1
+if (Test-Path $stateFile) {
+    [int]::TryParse((Get-Content $stateFile -Raw -ErrorAction SilentlyContinue), [ref]$prev) | Out-Null
+}
+$next = (($prev + 1) % $quotes.Count + $quotes.Count) % $quotes.Count
+Set-Content $stateFile -Value $next -Encoding UTF8
+$quote = $quotes[$next].Trim()
 
 # ------------------------------------------------------ samle spotlight ----
 $sources = @(
