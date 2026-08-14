@@ -8,7 +8,7 @@
 
 [CmdletBinding()]
 param(
-    [string]$QuotesFile  = "$PSScriptRoot\quotes.txt",
+    [string]$QuotesFile,
     [ValidateSet('BottomLeft', 'BottomCenter', 'Center')]
     [string]$Position    = 'BottomLeft',
     [int]$MinWidth       = 1600   # ignorer små/portrett-assets
@@ -17,6 +17,9 @@ param(
 Add-Type -AssemblyName System.Drawing
 
 $ErrorActionPreference = 'Stop'
+
+# $PSScriptRoot er ikke garantert utfylt i param-default; løs stien her
+if (-not $QuotesFile) { $QuotesFile = Join-Path $PSScriptRoot 'quotes.txt' }
 $work = Join-Path $env:LOCALAPPDATA 'DailyQuote'
 $pool = Join-Path $work 'spotlight'
 New-Item -ItemType Directory -Force -Path $work, $pool | Out-Null
@@ -35,7 +38,44 @@ $next = (($prev + 1) % $quotes.Count + $quotes.Count) % $quotes.Count
 Set-Content $stateFile -Value $next -Encoding UTF8
 $quote = $quotes[$next].Trim()
 
+# ------------------------------------------------ hent friske spotlight ----
+# Windows Spotlight sitt offentlige API (samme som Win11 bruker) gir ferske
+# bilder på forespørsel, så vi ikke er avhengige av den lokale cachen som
+# sjelden oppdateres.
+function Get-SpotlightFromApi {
+    param(
+        [Parameter(Mandatory)][string]$Destination,
+        [int]$Count = 4
+    )
+    $endpoint = 'https://fd.api.iris.microsoft.com/v4/api/selection?placement=88000820&bcnt={0}&country=US&locale=en-US&fmt=json' -f $Count
+    try {
+        $resp = Invoke-RestMethod -Uri $endpoint -UseBasicParsing -TimeoutSec 20
+    } catch {
+        Write-Warning "Kunne ikke hente Spotlight fra API: $($_.Exception.Message)"
+        return
+    }
+    foreach ($it in $resp.batchrsp.items) {
+        try {
+            $ad  = ($it.item | ConvertFrom-Json).ad
+            $url = $ad.landscapeImage.asset
+            if (-not $url) { continue }
+            $name = if ($ad.entityId) { $ad.entityId } else { [guid]::NewGuid().ToString() }
+            # Rens filnavn for ugyldige tegn
+            $name = ($name -replace '[^\w\-]', '_')
+            $dest = Join-Path $Destination ("api-$name.jpg")
+            if (-not (Test-Path $dest)) {
+                Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 30
+            }
+        } catch {
+            Write-Warning "Hopp over ett Spotlight-element: $($_.Exception.Message)"
+        }
+    }
+}
+
+Get-SpotlightFromApi -Destination $pool -Count 8
+
 # ------------------------------------------------------ samle spotlight ----
+# Fallback: kopier fra den lokale Spotlight-cachen hvis API ikke ga noe
 $sources = @(
     Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets'
     Join-Path $env:APPDATA      'Microsoft\Windows\Themes\CachedFiles'
@@ -96,6 +136,8 @@ $grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
     [System.Drawing.Color]::FromArgb(0, 0, 0, 0),
     [System.Drawing.Color]::FromArgb(215, 0, 0, 0),
     90.0)
+# Unngå 1-piksels artefakt (svart strek) i gradientkanten
+$grad.WrapMode = [System.Drawing.Drawing2D.WrapMode]::TileFlipXY
 $g.FillRectangle($grad, $scrimRect)
 $grad.Dispose()
 
