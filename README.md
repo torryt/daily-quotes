@@ -2,7 +2,7 @@
 
 Tegner dagens sitat pent oppå et Windows Spotlight-bilde og setter det som skrivebordsbakgrunn.
 
-Windows Spotlight gir deg nye bakgrunnsbilder, men ingen mulighet til å legge noe oppå dem. DailyQuote plukker bilder fra Spotlight-cachen som Windows fyller opp uansett, tegner et sitat nederst med en mørk gradient bak, og setter resultatet som bakgrunn. Du får fortsatt nye bilder gjennom dagen — bare med tekst på.
+Windows Spotlight gir deg nye bakgrunnsbilder, men ingen mulighet til å legge noe oppå dem. DailyQuote henter ferske bilder direkte fra Spotlight sitt offentlige API (samme kilde som Windows 11 bruker), tegner et sitat nederst med en mørk gradient bak, og setter resultatet som bakgrunn. Den lokale Spotlight-cachen brukes som fallback hvis API-et ikke er tilgjengelig. Du får fortsatt nye bilder gjennom dagen — bare med tekst på.
 
 Nytt sitat i tur og orden hver kjøring, nytt bilde hver fjerde time.
 
@@ -10,7 +10,7 @@ Nytt sitat i tur og orden hver kjøring, nytt bilde hver fjerde time.
 
 - Windows 10/11
 - PowerShell 5.1 (følger med Windows)
-- Windows Spotlight aktivert i minst et par dager, slik at bildecachen har rukket å fylle seg
+- Internettilgang for å hente ferske bilder fra Spotlight-API-et (uten nett faller scriptet tilbake på den lokale Spotlight-cachen)
 
 ## Kom i gang
 
@@ -53,18 +53,26 @@ Korte sitater ser best ut. Fonten skalerer automatisk ned hvis teksten er for la
 | --- | --- | --- |
 | `-QuotesFile` | `.\quotes.txt` | Sti til sitatfilen |
 | `-Position` | `BottomLeft` | `BottomLeft`, `BottomCenter` eller `Center` |
-| `-MinWidth` | `1600` | Minste bildebredde. Filtrerer bort småbilder og portrettformat fra Spotlight-cachen |
+| `-MinWidth` | `1600` | Minste bildebredde. Filtrerer bort småbilder og portrettformat |
 
 ## Hvordan det virker
 
-Spotlight-bilder havner to steder på disk, uten filendelse:
+Ferske bilder hentes fra Spotlight sitt offentlige API:
+
+```
+https://fd.api.iris.microsoft.com/v4/api/selection?placement=88000820&bcnt=8&country=US&locale=en-US&fmt=json
+```
+
+`placement=88000820` er skrivebords-spotlighten. Svaret er JSON der hvert element inneholder en URL til et liggende bilde i full oppløsning (typisk 3840×2160) på Microsofts offentlige CDN (`res.public.onecdn.static.microsoft`). Scriptet laster disse ned til `%LOCALAPPDATA%\DailyQuote\spotlight\`, deduplisert på `entityId`. Vil du ha bilder tilpasset et annet land, kan du justere `country`/`locale` i URL-en.
+
+Som fallback — hvis API-et ikke svarer — kopieres bilder fra den lokale Spotlight-cachen, som havner to steder på disk uten filendelse:
 
 ```
 %LOCALAPPDATA%\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets
 %APPDATA%\Microsoft\Windows\Themes\CachedFiles
 ```
 
-Scriptet kopierer alt over 250 KB derfra til `%LOCALAPPDATA%\DailyQuote\spotlight\`, forkaster det som ikke er liggende format i tilstrekkelig oppløsning, og velger tilfeldig blant resten. Bassenget blir liggende, så det vokser over tid selv når Windows rydder i sin egen cache.
+Uansett kilde forkastes det som ikke er liggende format i tilstrekkelig oppløsning, og scriptet velger tilfeldig blant resten. Bassenget blir liggende, så det vokser over tid.
 
 Sitatene roteres gjennom i rekkefølge. Sist brukte linjeindeks lagres i `%LOCALAPPDATA%\DailyQuote\quote-state.txt`, og hver kjøring plukker neste linje og starter på nytt øverst når lista er ute. Endrer du `quotes.txt`, justeres indeksen trygt slik at den alltid holder seg innenfor lista.
 
@@ -84,7 +92,7 @@ Låseskjermen støttes ikke. Windows Spotlight overstyrer den, og å sette den p
 Filene er merket som nedlastet fra internett. `Unblock-File .\*.ps1` fjerner merket. Sjekk gjeldende policy med `Get-ExecutionPolicy -List` — `RemoteSigned` krever kun signatur på merkede filer.
 
 **«Fant ingen Spotlight-bilder»**
-Cachen er tom. Slå på Spotlight under Innstillinger → Personalisering → Bakgrunn → Windows Spotlight, og la den gå et par dager før du kjører scriptet.
+Både API-henting og den lokale cachen slo feil. Sjekk internettforbindelsen. Som reserve kan du slå på Spotlight under Innstillinger → Personalisering → Bakgrunn → Windows Spotlight og la den gå et par dager, så cachen fyller seg.
 
 **Bakgrunnen endrer seg ikke**
 Sjekk at oppgaven finnes og har kjørt:
