@@ -1,9 +1,9 @@
 <#
     daily-quote.ps1
-    Henter et Windows Spotlight-bilde, tegner dagens sitat pent oppå,
-    og setter resultatet som skrivebordsbakgrunn.
+    Fetches a Windows Spotlight image, draws today's quote nicely on top,
+    and sets the result as desktop wallpaper.
 
-    Roterer gjennom sitatene i rekkefølge; nytt tilfeldig bilde for hver kjøring.
+    Rotates through the quotes in sequence; new random image for each run.
 #>
 
 [CmdletBinding()]
@@ -11,24 +11,24 @@ param(
     [string]$QuotesFile,
     [ValidateSet('BottomLeft', 'BottomCenter', 'Center')]
     [string]$Position    = 'BottomLeft',
-    [int]$MinWidth       = 1600   # ignorer små/portrett-assets
+    [int]$MinWidth       = 1600   # ignore small/portrait assets
 )
 
 Add-Type -AssemblyName System.Drawing
 
 $ErrorActionPreference = 'Stop'
 
-# $PSScriptRoot er ikke garantert utfylt i param-default; løs stien her
+# $PSScriptRoot is not guaranteed to be populated in param-default; resolve the path here
 if (-not $QuotesFile) { $QuotesFile = Join-Path $PSScriptRoot 'quotes.txt' }
 $work = Join-Path $env:LOCALAPPDATA 'DailyQuote'
 $pool = Join-Path $work 'spotlight'
 New-Item -ItemType Directory -Force -Path $work, $pool | Out-Null
 
-# ---------------------------------------------------------------- sitat ----
+# ---------------------------------------------------------------- quote ----
 $quotes = @(Get-Content $QuotesFile -Encoding UTF8 | Where-Object { $_.Trim() })
-if (-not $quotes) { throw "Fant ingen sitater i $QuotesFile" }
+if (-not $quotes) { throw "Found no quotes in $QuotesFile" }
 
-# Roter gjennom sitatene i rekkefølge; husk sist brukte indeks i state-fil
+# Rotate through the quotes in sequence; remember the last used index in state file
 $stateFile = Join-Path $work 'quote-state.txt'
 $prev = -1
 if (Test-Path $stateFile) {
@@ -38,10 +38,10 @@ $next = (($prev + 1) % $quotes.Count + $quotes.Count) % $quotes.Count
 Set-Content $stateFile -Value $next -Encoding UTF8
 $quote = $quotes[$next].Trim()
 
-# ------------------------------------------------ hent friske spotlight ----
-# Windows Spotlight sitt offentlige API (samme som Win11 bruker) gir ferske
-# bilder på forespørsel, så vi ikke er avhengige av den lokale cachen som
-# sjelden oppdateres.
+# ------------------------------------------------ fetch fresh spotlight ----
+# Windows Spotlight's public API (same as Win11 uses) provides fresh
+# images on request, so we are not dependent on the local cache which
+# is rarely updated.
 function Get-SpotlightFromApi {
     param(
         [Parameter(Mandatory)][string]$Destination,
@@ -51,7 +51,7 @@ function Get-SpotlightFromApi {
     try {
         $resp = Invoke-RestMethod -Uri $endpoint -UseBasicParsing -TimeoutSec 20
     } catch {
-        Write-Warning "Kunne ikke hente Spotlight fra API: $($_.Exception.Message)"
+        Write-Warning "Could not fetch Spotlight from API: $($_.Exception.Message)"
         return
     }
     foreach ($it in $resp.batchrsp.items) {
@@ -60,22 +60,22 @@ function Get-SpotlightFromApi {
             $url = $ad.landscapeImage.asset
             if (-not $url) { continue }
             $name = if ($ad.entityId) { $ad.entityId } else { [guid]::NewGuid().ToString() }
-            # Rens filnavn for ugyldige tegn
+            # Clean filename for invalid characters
             $name = ($name -replace '[^\w\-]', '_')
             $dest = Join-Path $Destination ("api-$name.jpg")
             if (-not (Test-Path $dest)) {
                 Invoke-WebRequest -Uri $url -OutFile $dest -UseBasicParsing -TimeoutSec 30
             }
         } catch {
-            Write-Warning "Hopp over ett Spotlight-element: $($_.Exception.Message)"
+            Write-Warning "Skipping one Spotlight element: $($_.Exception.Message)"
         }
     }
 }
 
 Get-SpotlightFromApi -Destination $pool -Count 8
 
-# ------------------------------------------------------ samle spotlight ----
-# Fallback: kopier fra den lokale Spotlight-cachen hvis API ikke ga noe
+# ------------------------------------------------------ collect spotlight ----
+# Fallback: copy from the local Spotlight cache if API didn't provide anything
 $sources = @(
     Join-Path $env:LOCALAPPDATA 'Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets'
     Join-Path $env:APPDATA      'Microsoft\Windows\Themes\CachedFiles'
@@ -94,7 +94,7 @@ foreach ($src in $sources) {
         }
 }
 
-# Kast alt som ikke er brukbart liggende format
+# Discard anything that is not usable landscape format
 Get-ChildItem $pool -Filter *.jpg -File | ForEach-Object {
     try {
         $probe = [System.Drawing.Image]::FromFile($_.FullName)
@@ -108,13 +108,13 @@ Get-ChildItem $pool -Filter *.jpg -File | ForEach-Object {
 
 $candidates = Get-ChildItem $pool -Filter *.jpg -File
 if (-not $candidates) {
-    throw "Fant ingen Spotlight-bilder. Slå på Spotlight en dag eller to først (Innstillinger > Personalisering > Bakgrunn > Windows Spotlight), så bygger cachen seg opp."
+    throw "Found no Spotlight images. Enable Spotlight for a day or two first (Settings > Personalization > Background > Windows Spotlight), then the cache will build up."
 }
 
-# Nytt bilde hver kjøring
+# New image each run
 $picture = $candidates | Get-Random
 
-# ---------------------------------------------------------------- tegne ----
+# ---------------------------------------------------------------- draw ----
 $img = [System.Drawing.Image]::FromFile($picture.FullName)
 $bmp = New-Object System.Drawing.Bitmap($img.Width, $img.Height)
 $g   = [System.Drawing.Graphics]::FromImage($bmp)
@@ -128,7 +128,7 @@ $img.Dispose()
 $W = $bmp.Width
 $H = $bmp.Height
 
-# Mørk gradient nederst så teksten alltid er lesbar
+# Dark gradient at the bottom so text is always readable
 $scrimH = [int]($H * 0.42)
 $scrimRect = New-Object System.Drawing.Rectangle(0, ($H - $scrimH), $W, $scrimH)
 $grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
@@ -136,12 +136,12 @@ $grad = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
     [System.Drawing.Color]::FromArgb(0, 0, 0, 0),
     [System.Drawing.Color]::FromArgb(215, 0, 0, 0),
     90.0)
-# Unngå 1-piksels artefakt (svart strek) i gradientkanten
+# Avoid 1-pixel artifact (black line) at gradient edge
 $grad.WrapMode = [System.Drawing.Drawing2D.WrapMode]::TileFlipXY
 $g.FillRectangle($grad, $scrimRect)
 $grad.Dispose()
 
-# Tekstboks
+# Text box
 $margin = [int]($W * 0.065)
 switch ($Position) {
     'Center'       { $boxY = [int]($H * 0.38); $align = 'Center' }
@@ -156,7 +156,7 @@ $fmt.Alignment     = $align
 $fmt.LineAlignment = 'Near'
 $fmt.Trimming      = 'Word'
 
-# Autoskaler fonten ned til sitatet får plass
+# Auto-scale font down until quote fits
 $size = [float]($W * 0.038)
 do {
     if ($font) { $font.Dispose() }
@@ -168,7 +168,7 @@ do {
 
 $rect = New-Object System.Drawing.RectangleF($margin, $boxY, $boxW, $boxH)
 
-# Myk skygge for kontrast, så selve teksten
+# Soft shadow for contrast, then the actual text
 $shadow = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(150, 0, 0, 0))
 $offset = [math]::Max(2, [int]($W * 0.0016))
 $shadowRect = New-Object System.Drawing.RectangleF(($margin + $offset), ($boxY + $offset), $boxW, $boxH)
@@ -180,7 +180,7 @@ $g.DrawString($quote, $font, $brush, $rect, $fmt)
 $brush.Dispose()
 $font.Dispose()
 
-# Diskré liten strek over teksten
+# Discreet small line above text
 $pen = New-Object System.Drawing.Pen(
     [System.Drawing.Color]::FromArgb(170, 255, 255, 255),
     [math]::Max(2, [int]($W * 0.0018)))
@@ -192,8 +192,8 @@ switch ($align) {
 $pen.Dispose()
 $g.Dispose()
 
-# ------------------------------------------------------------ lagre/sett ----
-# Nytt filnavn hver gang: Windows cacher bakgrunn per filsti
+# ------------------------------------------------------------ save/set ----
+# New filename each time: Windows caches wallpaper per file path
 Get-ChildItem $work -Filter 'wallpaper-*.jpg' -File -ErrorAction SilentlyContinue |
     Remove-Item -Force -ErrorAction SilentlyContinue
 
@@ -207,7 +207,7 @@ $params.Param[0] = New-Object System.Drawing.Imaging.EncoderParameter(
 $bmp.Save($out, $codec, $params)
 $bmp.Dispose()
 
-# Fyll-modus
+# Fill mode
 Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name WallpaperStyle -Value '10'
 Set-ItemProperty 'HKCU:\Control Panel\Desktop' -Name TileWallpaper -Value '0'
 
@@ -222,5 +222,5 @@ public class WallpaperNative {
 }
 [WallpaperNative]::SystemParametersInfo(20, 0, $out, 3) | Out-Null
 
-Write-Host "Satt bakgrunn: $quote"
-Write-Host "Bilde: $($picture.Name)"
+Write-Host "Set wallpaper: $quote"
+Write-Host "Image: $($picture.Name)"

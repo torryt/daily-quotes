@@ -1,111 +1,111 @@
 # DailyQuote
 
-Tegner dagens sitat pent oppå et Windows Spotlight-bilde og setter det som skrivebordsbakgrunn.
+Draws today's quote nicely on a Windows Spotlight image and sets it as desktop wallpaper.
 
-Windows Spotlight gir deg nye bakgrunnsbilder, men ingen mulighet til å legge noe oppå dem. DailyQuote henter ferske bilder direkte fra Spotlight sitt offentlige API (samme kilde som Windows 11 bruker), tegner et sitat nederst med en mørk gradient bak, og setter resultatet som bakgrunn. Den lokale Spotlight-cachen brukes som fallback hvis API-et ikke er tilgjengelig. Du får fortsatt nye bilder gjennom dagen — bare med tekst på.
+Windows Spotlight gives you new background images, but no way to add anything on top. DailyQuote fetches fresh images directly from Spotlight's public API (same source as Windows 11 uses), draws a quote at the bottom with a dark gradient behind it, and sets the result as wallpaper. The local Spotlight cache is used as a fallback if the API is unavailable. You still get new images throughout the day — just with text on them.
 
-Nytt sitat i tur og orden hver kjøring, nytt bilde hver fjerde time.
+New quote in order each run, new image every four hours.
 
-## Krav
+## Requirements
 
 - Windows 10/11
-- PowerShell 5.1 (følger med Windows)
-- Internettilgang for å hente ferske bilder fra Spotlight-API-et (uten nett faller scriptet tilbake på den lokale Spotlight-cachen)
+- PowerShell 5.1 (comes with Windows)
+- Internet access to fetch fresh images from Spotlight API (without internet the script falls back to the local Spotlight cache)
 
-## Kom i gang
+## Getting Started
 
-Legg alle filene i samme mappe, f.eks. `C:\dev\tools\DailyQuote\`:
+Place all files in the same directory, e.g. `C:\dev\tools\DailyQuote\`:
 
 ```powershell
-Unblock-File .\*.ps1     # fjerner nedlastingsmerket
+Unblock-File .\*.ps1     # removes the download mark
 .\install-task.ps1
 ```
 
-`install-task.ps1` registrerer en planlagt oppgave (ingen admin nødvendig) og kjører scriptet med én gang, så du ser resultatet umiddelbart.
+`install-task.ps1` registers a scheduled task (no admin required) and runs the script immediately, so you see the result right away.
 
-For å teste uten å registrere noe:
+To test without registering anything:
 
 ```powershell
 .\daily-quote.ps1
 ```
 
-## Filer
+## Files
 
-| Fil | Hva den gjør |
+| File | What it does |
 | --- | --- |
-| `daily-quote.ps1` | Selve jobben: velger sitat og bilde, tegner, setter bakgrunn |
-| `quotes.txt` | Sitatene, ett per linje, UTF-8 |
-| `install-task.ps1` | Registrerer planlagt oppgave ved pålogging + hver 4. time |
+| `daily-quote.ps1` | The main job: selects quote and image, draws, sets wallpaper |
+| `quotes.txt` | The quotes, one per line, UTF-8 |
+| `install-task.ps1` | Registers scheduled task on login + every 4 hours |
 
-## Egne sitater
+## Custom Quotes
 
-Rediger `quotes.txt` — ett sitat per linje. Filen leses ved hver kjøring, så du trenger ikke registrere oppgaven på nytt. Lagre som UTF-8 hvis du bruker æ, ø og å.
+Edit `quotes.txt` — one quote per line. The file is read at each run, so you don't need to re-register the task. Save as UTF-8 if you use special characters.
 
-Korte sitater ser best ut. Fonten skalerer automatisk ned hvis teksten er for lang til å få plass, men under ca. 60 tegn holder seg på én til to linjer.
+Short quotes look best. The font scales down automatically if the text is too long to fit, but under about 60 characters it stays on one or two lines.
 
-## Parametere
+## Parameters
 
 ```powershell
 .\daily-quote.ps1 -Position BottomCenter
 ```
 
-| Parameter | Standard | Beskrivelse |
+| Parameter | Default | Description |
 | --- | --- | --- |
-| `-QuotesFile` | `.\quotes.txt` | Sti til sitatfilen |
-| `-Position` | `BottomLeft` | `BottomLeft`, `BottomCenter` eller `Center` |
-| `-MinWidth` | `1600` | Minste bildebredde. Filtrerer bort småbilder og portrettformat |
+| `-QuotesFile` | `.\quotes.txt` | Path to quotes file |
+| `-Position` | `BottomLeft` | `BottomLeft`, `BottomCenter` or `Center` |
+| `-MinWidth` | `1600` | Minimum image width. Filters out small images and portrait format |
 
-## Hvordan det virker
+## How It Works
 
-Ferske bilder hentes fra Spotlight sitt offentlige API:
+Fresh images are fetched from Spotlight's public API:
 
 ```
 https://fd.api.iris.microsoft.com/v4/api/selection?placement=88000820&bcnt=8&country=US&locale=en-US&fmt=json
 ```
 
-`placement=88000820` er skrivebords-spotlighten. Svaret er JSON der hvert element inneholder en URL til et liggende bilde i full oppløsning (typisk 3840×2160) på Microsofts offentlige CDN (`res.public.onecdn.static.microsoft`). Scriptet laster disse ned til `%LOCALAPPDATA%\DailyQuote\spotlight\`, deduplisert på `entityId`. Vil du ha bilder tilpasset et annet land, kan du justere `country`/`locale` i URL-en.
+`placement=88000820` is desktop spotlight. The response is JSON where each element contains a URL to a landscape image in full resolution (typically 3840×2160) on Microsoft's public CDN (`res.public.onecdn.static.microsoft`). The script downloads these to `%LOCALAPPDATA%\DailyQuote\spotlight\`, deduplicated on `entityId`. If you want images tailored to another country, you can adjust `country`/`locale` in the URL.
 
-Som fallback — hvis API-et ikke svarer — kopieres bilder fra den lokale Spotlight-cachen, som havner to steder på disk uten filendelse:
+As a fallback — if the API doesn't respond — images are copied from the local Spotlight cache, which lands in two places on disk without file extension:
 
 ```
 %LOCALAPPDATA%\Packages\Microsoft.Windows.ContentDeliveryManager_cw5n1h2txyewy\LocalState\Assets
 %APPDATA%\Microsoft\Windows\Themes\CachedFiles
 ```
 
-Uansett kilde forkastes det som ikke er liggende format i tilstrekkelig oppløsning, og scriptet velger tilfeldig blant resten. Bassenget blir liggende, så det vokser over tid.
+Regardless of source, anything that isn't landscape format in sufficient resolution is discarded, and the script randomly picks from the rest. The pool stays, so it grows over time.
 
-Sitatene roteres gjennom i rekkefølge. Sist brukte linjeindeks lagres i `%LOCALAPPDATA%\DailyQuote\quote-state.txt`, og hver kjøring plukker neste linje og starter på nytt øverst når lista er ute. Endrer du `quotes.txt`, justeres indeksen trygt slik at den alltid holder seg innenfor lista.
+Quotes are rotated in order. The last used line index is stored in `%LOCALAPPDATA%\DailyQuote\quote-state.txt`, and each run picks the next line and starts over at the top when the list runs out. If you change `quotes.txt`, the index is safely adjusted so it always stays within the list.
 
-Ferdig bilde lagres i `%LOCALAPPDATA%\DailyQuote\` med tidsstempel i filnavnet — Windows cacher bakgrunnen per filsti, så uten nytt navn hver gang ville ikke endringen slått gjennom. Bakgrunnen settes via `SystemParametersInfo` med `SPI_SETDESKWALLPAPER`.
+The finished image is saved in `%LOCALAPPDATA%\DailyQuote\` with a timestamp in the filename — Windows caches the wallpaper per file path, so without a new name each time the change wouldn't take effect. The wallpaper is set via `SystemParametersInfo` with `SPI_SETDESKWALLPAPER`.
 
-## Kjent begrensning
+## Known Limitation
 
-**Spotlight-rotasjonen slås av.** Så snart en egen bakgrunn settes, slutter Windows å rotere selv. DailyQuote overtar den jobben — derav den planlagte oppgaven hver fjerde time.
+**Spotlight rotation is turned off.** As soon as a custom wallpaper is set, Windows stops rotating. DailyQuote takes over that job — hence the scheduled task every four hours.
 
-Vil du ha teksten liggende oppå *levende* Spotlight, må du ha et flytende vindu over skrivebordet i stedet. Rainmeter er enkleste vei dit, eller en liten WPF-app med `WS_EX_NOACTIVATE` festet bak ikonene.
+If you want the text on top of *live* Spotlight, you'd need a floating window over the desktop instead. Rainmeter is the easiest way, or a small WPF app with `WS_EX_NOACTIVATE` anchored behind icons.
 
-Låseskjermen støttes ikke. Windows Spotlight overstyrer den, og å sette den programmatisk krever Pro/Enterprise og PersonalizationCSP.
+The lock screen is not supported. Windows Spotlight overrides it, and setting it programmatically requires Pro/Enterprise and PersonalizationCSP.
 
-## Feilsøking
+## Troubleshooting
 
 **«cannot be loaded ... not digitally signed»**
-Filene er merket som nedlastet fra internett. `Unblock-File .\*.ps1` fjerner merket. Sjekk gjeldende policy med `Get-ExecutionPolicy -List` — `RemoteSigned` krever kun signatur på merkede filer.
+The files are marked as downloaded from the internet. `Unblock-File .\*.ps1` removes the mark. Check the current policy with `Get-ExecutionPolicy -List` — `RemoteSigned` only requires a signature on marked files.
 
-**«Fant ingen Spotlight-bilder»**
-Både API-henting og den lokale cachen slo feil. Sjekk internettforbindelsen. Som reserve kan du slå på Spotlight under Innstillinger → Personalisering → Bakgrunn → Windows Spotlight og la den gå et par dager, så cachen fyller seg.
+**«Found no Spotlight images»**
+Both API fetch and local cache failed. Check your internet connection. As a backup you can enable Spotlight under Settings → Personalization → Background → Windows Spotlight and let it run for a couple of days, then the cache will fill up.
 
-**Bakgrunnen endrer seg ikke**
-Sjekk at oppgaven finnes og har kjørt:
+**The wallpaper doesn't change**
+Check that the task exists and has run:
 
 ```powershell
 Get-ScheduledTask -TaskName 'DailyQuote Wallpaper' | Get-ScheduledTaskInfo
 ```
 
-## Avinstallering
+## Uninstalling
 
 ```powershell
 Unregister-ScheduledTask -TaskName 'DailyQuote Wallpaper' -Confirm:$false
 Remove-Item "$env:LOCALAPPDATA\DailyQuote" -Recurse -Force
 ```
 
-Sett så bakgrunnen tilbake til Spotlight under Innstillinger → Personalisering → Bakgrunn.
+Then set the wallpaper back to Spotlight under Settings → Personalization → Background.
