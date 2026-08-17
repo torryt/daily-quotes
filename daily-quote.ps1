@@ -3,7 +3,8 @@
     Fetches a Windows Spotlight image, draws today's quote nicely on top,
     and sets the result as desktop wallpaper.
 
-    Rotates through the quotes in sequence; new random image for each run.
+    Rotates through the quotes in a shuffled order, reshuffling into a new
+    order each time the list is exhausted; new random image for each run.
 #>
 
 [CmdletBinding()]
@@ -28,15 +29,33 @@ New-Item -ItemType Directory -Force -Path $work, $pool | Out-Null
 $quotes = @(Get-Content $QuotesFile -Encoding UTF8 | Where-Object { $_.Trim() })
 if (-not $quotes) { throw "Found no quotes in $QuotesFile" }
 
-# Rotate through the quotes in sequence; remember the last used index in state file
+# Rotate through the quotes in a shuffled order; reshuffle (into a new order) once exhausted
 $stateFile = Join-Path $work 'quote-state.txt'
-$prev = -1
+$order = $null
+$pos = -1
 if (Test-Path $stateFile) {
-    [int]::TryParse((Get-Content $stateFile -Raw -ErrorAction SilentlyContinue), [ref]$prev) | Out-Null
+    $lines = Get-Content $stateFile -ErrorAction SilentlyContinue
+    if ($lines.Count -ge 2) {
+        $parsedOrder = @($lines[0] -split ',' | ForEach-Object { [int]$_ })
+        $parsedPos = -1
+        if ([int]::TryParse($lines[1], [ref]$parsedPos) -and $parsedOrder.Count -eq $quotes.Count) {
+            $order = $parsedOrder
+            $pos = $parsedPos
+        }
+    }
 }
-$next = (($prev + 1) % $quotes.Count + $quotes.Count) % $quotes.Count
-Set-Content $stateFile -Value $next -Encoding UTF8
-$quote = $quotes[$next].Trim()
+
+$next = $pos + 1
+if (-not $order -or $next -ge $order.Count) {
+    do {
+        $newOrder = @(0..($quotes.Count - 1) | Sort-Object { Get-Random })
+    } while ($order -and $quotes.Count -gt 1 -and ($newOrder -join ',') -eq ($order -join ','))
+    $order = $newOrder
+    $next = 0
+}
+
+Set-Content $stateFile -Value @(($order -join ','), $next) -Encoding UTF8
+$quote = $quotes[$order[$next]].Trim()
 
 # ------------------------------------------------ fetch fresh spotlight ----
 # Windows Spotlight's public API (same as Win11 uses) provides fresh
