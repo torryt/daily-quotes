@@ -19,16 +19,13 @@ Dypt før bredt
 Fiks årsaken, ikke symptomet
 Vær nyttig, ikke travel
 Perfeksjon er utsettelse med bedre klær
-Små steg slår store planer som aldri starter
 Fremgang, ikke perfeksjon
 Frykten forsvinner ikke - du går bare gjennom den
 Det verste utfallet er sjelden så ille som du tror
 Feil er bevis på at du prøvde
 Den som spør er dum i fem minutter, den som ikke spør er dum for alltid
 Læring skjer i ubehaget, ikke i komfortsonen
-Bli en dag bedre, ikke en dag ferdig
 Stillhet er også et svar
-Pusten din er alltid tilgjengelig
 Du kan ikke stoppe bølgene, men du kan lære å surfe
 Ro kommer av aksept, ikke kontroll
 Still spørsmål før du gir svar
@@ -37,17 +34,14 @@ Ideer er billige, gjennomføring er dyrt
 Lytt for å forstå, ikke for å svare
 En oppriktig takk varer lenger enn du tror
 Don't panic
-Det finnes ingen skje, bare oppfatningen din av den
 TODO betyr som regel aldri
 Alt er en DNS-feil til det motsatte er bevist
 Kode du ikke forstår om seks måneder er ikke din venn
 Det fungerer på min maskin
 Har du prøvd å skru den av og på igjen?
 Ikke alle som vandrer er fortapt
-There is no spoon
 That's no moon, it's a space station
 So long, and thanks for all the fish
-Weeks of coding can save you hours of planning
 Patience you must have, my young padawan
 Fail, you will. Learn, you shall
 Much to learn, you still have
@@ -63,7 +57,6 @@ Vi lider oftere i fantasien enn i virkeligheten
 Reisen på tusen mil begynner med ett skritt
 Sitt stille og gjør ingenting. Våren kommer, og gresset gror av seg selv
 Tøm koppen din, så det er plass til noe nytt
-Det er et eller annet som skurrer i mosen her
 Livet er et lære, man må alltid lære
 Alle modeller er feil, men noen er nyttige
 Den som har et hvorfor å leve for, tåler nesten ethvert hvordan
