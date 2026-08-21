@@ -21,9 +21,10 @@ $ErrorActionPreference = 'Stop'
 
 # $PSScriptRoot is not guaranteed to be populated in param-default; resolve the path here
 if (-not $QuotesFile) { $QuotesFile = Join-Path $PSScriptRoot 'quotes.txt' }
-$work = Join-Path $env:LOCALAPPDATA 'DailyQuote'
-$pool = Join-Path $work 'spotlight'
-New-Item -ItemType Directory -Force -Path $work, $pool | Out-Null
+$work     = Join-Path $env:LOCALAPPDATA 'DailyQuote'
+$pool     = Join-Path $work 'spotlight'
+$keepsakes = Join-Path $work 'keepsakes'
+New-Item -ItemType Directory -Force -Path $work, $pool, $keepsakes | Out-Null
 
 # ---------------------------------------------------------------- quote ----
 $quotes = @(Get-Content $QuotesFile -Encoding UTF8 | Where-Object { $_.Trim() })
@@ -113,12 +114,33 @@ foreach ($src in $sources) {
         }
 }
 
-# Discard anything that is not usable landscape format
+# A JPEG must end with the End-Of-Image marker (FF D9); a truncated download
+# passes a header-only probe but emits "premature end of data segment" when drawn.
+function Test-JpegComplete {
+    param([Parameter(Mandatory)][string]$Path)
+    try {
+        $fs = [System.IO.File]::OpenRead($Path)
+        try {
+            if ($fs.Length -lt 2) { return $false }
+            $buf = New-Object byte[] 2
+            $fs.Seek(-2, [System.IO.SeekOrigin]::End) | Out-Null
+            [void]$fs.Read($buf, 0, 2)
+            return ($buf[0] -eq 0xFF -and $buf[1] -eq 0xD9)
+        } finally {
+            $fs.Dispose()
+        }
+    } catch {
+        return $false
+    }
+}
+
+# Discard anything that is not usable landscape format or is truncated
 Get-ChildItem $pool -Filter *.jpg -File | ForEach-Object {
     try {
         $probe = [System.Drawing.Image]::FromFile($_.FullName)
         $ok = ($probe.Width -ge $MinWidth -and $probe.Width -gt $probe.Height)
         $probe.Dispose()
+        if ($ok) { $ok = Test-JpegComplete -Path $_.FullName }
         if (-not $ok) { Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue }
     } catch {
         Remove-Item $_.FullName -Force -ErrorAction SilentlyContinue
@@ -212,11 +234,9 @@ $pen.Dispose()
 $g.Dispose()
 
 # ------------------------------------------------------------ save/set ----
-# New filename each time: Windows caches wallpaper per file path
-Get-ChildItem $work -Filter 'wallpaper-*.jpg' -File -ErrorAction SilentlyContinue |
-    Remove-Item -Force -ErrorAction SilentlyContinue
-
-$out = Join-Path $work ("wallpaper-{0}.jpg" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
+# New filename each time: Windows caches wallpaper per file path.
+# Keepsakes are kept as an archive, so previous images are not removed.
+$out = Join-Path $keepsakes ("wallpaper-{0}.jpg" -f (Get-Date -Format 'yyyyMMdd-HHmmss'))
 
 $codec = [System.Drawing.Imaging.ImageCodecInfo]::GetImageEncoders() |
          Where-Object { $_.MimeType -eq 'image/jpeg' }
